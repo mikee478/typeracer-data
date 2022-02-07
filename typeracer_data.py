@@ -44,6 +44,8 @@ if __name__ == '__main__':
 			y = data['Best WPM']
 			ax.plot(x,y,'-or', label='Best WPM')
 
+			fig.canvas.manager.set_window_title('TypeRacer Data')
+			ax.set_title(f'User Data For {username}')
 			ax.legend()
 			ax.xaxis.set_major_formatter(mdates.DateFormatter('%B %Y'))
 			ax.xaxis.set_major_locator(mdates.MonthLocator(interval=4))
