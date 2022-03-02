@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
 from bs4 import BeautifulSoup as bs
 import requests
 import time
@@ -70,16 +71,25 @@ def plot_data(data, last_update):
 
 	fig.canvas.manager.set_window_title('TypeRacer Data')
 	ax.set_title(f'User Data For {username} (Last Updated {utc_to_local(last_update).strftime("%x %-I:%M:%S %p")})')
-	ax.legend()
+
 	ax.xaxis.set_major_formatter(mdates.DateFormatter('%B %Y'))
 	ax.xaxis.set_major_locator(mdates.MonthLocator(interval=4))
+	ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+	ax.yaxis.set_major_locator(ticker.MultipleLocator(5))
 	ax.set_ylabel('WPM')
 	fig.autofmt_xdate()
+	ax.set_xlim(left=x[-1])
+	plt.grid(b=True, which='major', axis='both')
+	plt.grid(b=True, which='minor', axis='both', linestyle=':')
+	ax.legend()
 
 	plt.show()
 
 if __name__ == '__main__':
 	username = 'mikee478'
-	page_text, last_update = get_updated_text(username)
-	data = parse_page_text(page_text)
-	plot_data(data, last_update)
+	if ret := get_updated_text(username):
+		page_text, last_update = ret
+		data = parse_page_text(page_text)
+		plot_data(data, last_update)
+	else:
+		print("Error: Unable to retrieve updated data!")
