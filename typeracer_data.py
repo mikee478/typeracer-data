@@ -67,7 +67,7 @@ def utc_to_local(utc_dt):
     return utc_dt.replace(tzinfo=dt.timezone.utc).astimezone(tz=None)
 
 def plot_data(data, last_update):
-	fig, ax = plt.subplots()
+	fig, ax = plt.subplots(figsize=(10,6))
 
 	x = [dt.datetime.strptime(d,'%B %Y').date() for d in data['Date']]
 	y = data['Average WPM']
