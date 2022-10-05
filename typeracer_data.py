@@ -10,12 +10,12 @@ from dateutil import parser
 import pytz
 
 def send_update_request(username):
-	url = 'https://typeracerdata.com/import?username=' + username
+	url = f'https://typeracerdata.com/import?username={username}'
 	response = requests.get(url)
-	return response.ok
+	return response.text if response.ok else None
 
 def get_page_text(username):
-	url = 'https://typeracerdata.com/profile?username=' + username
+	url = f'https://typeracerdata.com/profile?username={username}'
 	response = requests.get(url)
 	return response.text if response.ok else None
 
@@ -27,35 +27,41 @@ def parse_page_text(text):
 
 	data = []
 	for tr_tag in tr_tags[1:]: # skip header
-		row_text = tr_tag.get_text().strip().split('\n')
+		row_text = tr_tag.get_text().strip().replace(',','').split('\n')
 		data.append(tuple(row_text))
 
 	return np.array(data, dtype=[('Date', 'U32'), ('Average WPM', float), ('Best WPM', float), ('Races', int), ('Wins', int), ('Win %', float)])	
 
-def get_updated_text(username, max_sec_since_update=30, max_wait_time=10, sleep_time=1):
-	if not send_update_request(username): return None
+def account_not_found(page_text):
+	return 'Account not found' in page_text
 
-	n_seconds = dt.timedelta(seconds=max_sec_since_update)
+def get_updated_text(username, max_sec_since_update=60, max_wait_time=30, sleep_time=2):
+	ret = send_update_request(username)
+	if ret is None:
+		print('ERROR: Update request could not be sent')
+	elif account_not_found(ret):
+		print(f'ERROR: User "{username}" could not be found')
+	else:
+		n_seconds = dt.timedelta(seconds=max_sec_since_update)
+		start_time = time.time()
 
-	start_time = time.time()
+		while time.time() - start_time <= max_wait_time:
+			print('Retrieving updated user data...')
+			if page_text := get_page_text(username):
+				last_imp_ind1 = page_text.find('(Last import: ')
+				last_imp_ind2 = page_text.find(')', last_imp_ind1)
 
-	while time.time() - start_time <= max_wait_time:
-		page_text = get_page_text(username)
-		if page_text is not None:
-			last_imp_ind1 = page_text.find('(Last import: ')
-			last_imp_ind2 = page_text.find(')', last_imp_ind1)
+				date_str = page_text[last_imp_ind1+14:last_imp_ind2]
+				last_update = parser.parse(date_str)
 
-			date_str = page_text[last_imp_ind1+14:last_imp_ind2]
-			last_update = parser.parse(date_str)
+				now = dt.datetime.now(pytz.utc)
 
-			now = dt.datetime.now(pytz.utc)
+				if now - last_update < n_seconds:
+					return page_text, last_update
 
-			if now - last_update < n_seconds:
-				return page_text, last_update
+			time.sleep(sleep_time)
 
-		time.sleep(sleep_time)
-
-	return None
+		print('ERROR: Timed out retrieving updated user data')
 
 def utc_to_local(utc_dt):
     return utc_dt.replace(tzinfo=dt.timezone.utc).astimezone(tz=None)
@@ -86,10 +92,10 @@ def plot_data(data, last_update):
 	plt.show()
 
 if __name__ == '__main__':
-	username = 'mikee478'
+	print('Enter TypeRacer username: ', end='')
+	username = input().strip()
+
 	if ret := get_updated_text(username):
-		page_text, last_update = ret
-		data = parse_page_text(page_text)
+		text, last_update = ret
+		data = parse_page_text(text)
 		plot_data(data, last_update)
-	else:
-		print("Error: Unable to retrieve updated data!")
